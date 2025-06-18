@@ -67,7 +67,7 @@ async function init() {
 		.loadAsync( 'https://raw.githubusercontent.com/gkjohnson/3d-demo-data/main/models/nasa-m2020/Perseverance.glb' );
 	model = gltf.scene;
 
-	// generate the merged geometry
+	// transform and merge geometries to project into a single model
 	const geometries = [];
 	model.updateWorldMatrix( true, true );
 	model.traverse( c => {
@@ -76,6 +76,17 @@ async function init() {
 
 			const clone = c.geometry.clone();
 			clone.applyMatrix4( c.matrixWorld );
+			
+			// 确保 morphTargetsRelative 属性一致
+			clone.morphTargetsRelative = false;
+			
+			// 删除所有的 morph 属性
+			if ( clone.morphAttributes ) {
+				for ( const key in clone.morphAttributes ) {
+					delete clone.morphAttributes[ key ];
+				}
+			}
+			
 			for ( const key in clone.attributes ) {
 
 				if ( key !== 'position' ) {

@@ -157,6 +157,17 @@ function* updateEdges( runTime = 30 ) {
 
 			const clone = c.geometry.clone();
 			clone.applyMatrix4( c.matrixWorld );
+			
+			// 确保 morphTargetsRelative 属性一致
+			clone.morphTargetsRelative = false;
+			
+			// 删除所有的 morph 属性
+			if ( clone.morphAttributes ) {
+				for ( const key in clone.morphAttributes ) {
+					delete clone.morphAttributes[ key ];
+				}
+			}
+			
 			for ( const key in clone.attributes ) {
 
 				if ( key !== 'position' ) {

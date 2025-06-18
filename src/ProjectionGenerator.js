@@ -4,6 +4,9 @@ import {
 	Line3,
 	Ray,
 	BufferAttribute,
+	Matrix4,
+	Object3D,
+	Box3
 } from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 import {
@@ -22,10 +25,24 @@ import { generateIntersectionEdges } from './utils/generateIntersectionEdges.js'
 // generator so there's no risk of overwriting another tasks data
 const DIST_THRESHOLD = 1e-10;
 const UP_VECTOR = /* @__PURE__ */ new Vector3( 0, 1, 0 );
+Object3D.DEFAULT_UP.set(0, 0, 1);
+
+// 投影方向枚举
+export const ProjectionDirection = {
+	TOP: 'top',      // 俯视图
+	FRONT: 'front',  // 前视图
+	LEFT: 'left'     // 左视图
+};
+
 const _beneathLine = /* @__PURE__ */ new Line3();
 const _ray = /* @__PURE__ */ new Ray();
 const _vec = /* @__PURE__ */ new Vector3();
 const _overlapLine = /* @__PURE__ */ new Line3();
+const _matrix = /* @__PURE__ */ new Matrix4();
+const _center = /* @__PURE__ */ new Vector3();
+const _translateToOrigin = /* @__PURE__ */ new Matrix4();
+const _translateBack = /* @__PURE__ */ new Matrix4();
+const _box = /* @__PURE__ */ new Box3();
 
 class EdgeSet {
 
@@ -69,6 +86,7 @@ export class ProjectionGenerator {
 		this.iterationTime = 30;
 		this.angleThreshold = 50;
 		this.includeIntersectionEdges = true;
+		this.projectionDirection = ProjectionDirection.TOP; // 默认前视图
 
 	}
 
@@ -110,11 +128,39 @@ export class ProjectionGenerator {
 	*generate( bvh, options = {} ) {
 
 		const { onProgress } = options;
-		const { sortEdges, iterationTime, angleThreshold, includeIntersectionEdges } = this;
+		const { sortEdges, iterationTime, angleThreshold, includeIntersectionEdges, projectionDirection } = this;
 
 		if ( bvh instanceof BufferGeometry ) {
 
-			bvh = new MeshBVH( bvh, { maxLeafTris: 1 } );
+			// 克隆几何体，避免修改原始数据
+			const geometry = bvh.clone();
+			
+			// 计算几何体的中心点
+			_box.setFromBufferAttribute(geometry.attributes.position);
+			_box.getCenter(_center);
+			
+			// 创建变换矩阵
+			_translateToOrigin.makeTranslation(-_center.x, -_center.y, -_center.z);
+			_translateBack.makeTranslation(_center.x, _center.y, _center.z);
+			
+			// 根据投影方向旋转几何体
+			switch (projectionDirection) {
+				case ProjectionDirection.FRONT:
+					_matrix.makeRotationX(-Math.PI / 2);
+					geometry.applyMatrix4(_translateToOrigin);
+					geometry.applyMatrix4(_matrix);
+					geometry.applyMatrix4(_translateBack);
+					break;
+				case ProjectionDirection.LEFT:
+					_matrix.makeRotationZ(-Math.PI / 2);
+					geometry.applyMatrix4(_translateToOrigin);
+					geometry.applyMatrix4(_matrix);
+					geometry.applyMatrix4(_translateBack);
+					break;
+				// TOP视图不需要旋转
+			}
+			
+			bvh = new MeshBVH( geometry, { maxLeafTris: 1 } );
 
 		}
 
