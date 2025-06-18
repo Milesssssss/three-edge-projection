@@ -29,6 +29,7 @@ onmessage = function ( { data } ) {
 		geometry.setAttribute( 'position', new BufferAttribute( position, 3, false ) );
 
 		const generator = new ProjectionGenerator();
+		generator.projectionDirection = options.projectionDirection ?? generator.projectionDirection;
 		generator.sortEdges = options.sortEdges ?? generator.sortEdges;
 		generator.angleThreshold = options.angleThreshold ?? generator.angleThreshold;
 		generator.includeIntersectionEdges = options.includeIntersectionEdges ?? generator.includeIntersectionEdges;

@@ -11,6 +11,7 @@ import {
 	LineSegments,
 	LineBasicMaterial,
 	PerspectiveCamera,
+	Object3D,
 } from 'three';
 import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -22,6 +23,8 @@ import { ProjectionGenerator } from '..';
 import { ProjectionGeneratorWorker } from '../src/worker/ProjectionGeneratorWorker.js';
 import { generateEdges } from '../src/utils/generateEdges.js';
 
+Object3D.DEFAULT_UP.set(0, 0, 1);
+
 const params = {
 	displayModel: 'color',
 	displayEdges: false,
@@ -29,6 +32,7 @@ const params = {
 	sortEdges: true,
 	includeIntersectionEdges: false,
 	useWorker: true,
+	projectionDirection: 'top',
 	rotate: () => {
 
 		group.quaternion.random();
@@ -48,7 +52,7 @@ const params = {
 	},
 };
 
-const ANGLE_THRESHOLD = 10;
+const ANGLE_THRESHOLD = 3;
 let renderer, camera, scene, gui, controls;
 let lines, model, projection, group, shadedWhiteModel, whiteModel;
 let outputContainer;
@@ -181,6 +185,14 @@ async function init() {
 		// 'white',
 	]);
 	gui.add( params, 'displayEdges' );
+	gui.add( params, 'projectionDirection', [
+		'top',
+		'front',
+		'left',
+		'back',
+		'right',
+		'bottom',
+	] );
 	gui.add(params, 'displayProjection');
 	gui.add(params, 'sortEdges');
 	gui.add(params, 'includeIntersectionEdges');
@@ -265,6 +277,7 @@ function* updateEdges(runTime = 30) {
 	if (!params.useWorker) {
 
 		const generator = new ProjectionGenerator();
+		generator.projectionDirection = params.projectionDirection;
 		generator.sortEdges = params.sortEdges;
 		generator.iterationTime = runTime;
 		generator.angleThreshold = ANGLE_THRESHOLD;
@@ -299,9 +312,11 @@ function* updateEdges(runTime = 30) {
 
 	} else {
 
+		console.log(params.projectionDirection);
 		worker
 			.generate(mergedGeometry, {
 				sortEdges: params.sortEdges,
+				projectionDirection: params.projectionDirection,
 				includeIntersectionEdges: params.includeIntersectionEdges,
 				iterationTime: runTime,
 				angleThreshold: ANGLE_THRESHOLD,
