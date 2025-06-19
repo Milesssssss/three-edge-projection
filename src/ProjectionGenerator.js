@@ -89,6 +89,7 @@ export class ProjectionGenerator {
 		this.angleThreshold = 10;
 		this.includeIntersectionEdges = true;
 		this.projectionDirection = ProjectionDirection.TOP; // 默认前视图
+		this.generateAllViews = false; // 是否生成所有6个视图
 
 	}
 
@@ -130,7 +131,80 @@ export class ProjectionGenerator {
 	*generate(bvh, options = {}) {
 
 		const { onProgress } = options;
-		const { sortEdges, iterationTime, angleThreshold, includeIntersectionEdges, projectionDirection } = this;
+		const { sortEdges, iterationTime, angleThreshold, includeIntersectionEdges, projectionDirection, generateAllViews } = this;
+
+		// 如果需要生成所有视图
+		if (generateAllViews) {
+			const results = yield* this._generateAllViews(bvh, options);
+			return results;
+		}
+
+		// 原有的单视图逻辑
+		const result = yield* this._generateSingleView(bvh, projectionDirection, options);
+		return result;
+
+	}
+
+	*_generateAllViews(bvh, options = {}) {
+
+		const { onProgress } = options;
+		const views = ['top', 'bottom', 'front', 'back', 'left', 'right'];
+		const results = {};
+
+		// 准备几何体
+		let geometry;
+		let meshBVH;
+		let shouldDispose = false;
+
+		if (bvh instanceof BufferGeometry) {
+			geometry = bvh.clone();
+			shouldDispose = true;
+		} else {
+			geometry = bvh.geometry;
+			meshBVH = bvh;
+		}
+
+		// 生成每个视图
+		for (let i = 0; i < views.length; i++) {
+			const view = views[i];
+			
+			// 创建视图特定的回调
+			const viewProgress = onProgress ? (p, data) => {
+				const overallProgress = (i + p) / views.length;
+				onProgress(overallProgress, {
+					currentView: view,
+					viewProgress: p,
+					currentData: data,
+					allViews: results
+				});
+			} : undefined;
+
+			// 生成单个视图
+			const viewOptions = { ...options, onProgress: viewProgress };
+			const task = this._generateSingleView(bvh, view, viewOptions);
+			
+			let result = task.next();
+			while (!result.done) {
+				result = task.next();
+				yield;
+			}
+
+			results[view] = result.value;
+		}
+
+		// 清理
+		if (shouldDispose) {
+			geometry.dispose();
+		}
+
+		return results;
+
+	}
+
+	*_generateSingleView(bvh, projectionDirection, options = {}) {
+
+		const { onProgress } = options;
+		const { sortEdges, iterationTime, angleThreshold, includeIntersectionEdges } = this;
 
 		if (bvh instanceof BufferGeometry) {
 
@@ -146,41 +220,41 @@ export class ProjectionGenerator {
 			_translateBack.makeTranslation(_center.x, _center.y, _center.z);
 
 			// 根据投影方向旋转几何体
-      switch (projectionDirection) {
-        case ProjectionDirection.TOP:
-          _matrix.makeRotationX(-Math.PI / 2);
-          geometry.applyMatrix4(_translateToOrigin);
-          geometry.applyMatrix4(_matrix);
-          geometry.applyMatrix4(_translateBack);
-          break;
-        case ProjectionDirection.BOTTOM:
-          _matrix.makeRotationX(Math.PI / 2);
-          geometry.applyMatrix4(_translateToOrigin);
-          geometry.applyMatrix4(_matrix);
-          geometry.applyMatrix4(_translateBack);
-          break;
-        case ProjectionDirection.FRONT:
-          _matrix.makeRotationZ(Math.PI / 2);
-          geometry.applyMatrix4(_translateToOrigin);
-          geometry.applyMatrix4(_matrix);
-          geometry.applyMatrix4(_translateBack);
-          break;
-        case ProjectionDirection.BACK:
-          _matrix.makeRotationZ(-Math.PI / 2);
-          geometry.applyMatrix4(_translateToOrigin);
-          geometry.applyMatrix4(_matrix);
-          geometry.applyMatrix4(_translateBack);
-          break;
-        case ProjectionDirection.LEFT:
-          break;
-        case ProjectionDirection.RIGHT:
-          _matrix.makeRotationZ(-Math.PI);
-          geometry.applyMatrix4(_translateToOrigin);
-          geometry.applyMatrix4(_matrix);
-          geometry.applyMatrix4(_translateBack);
-          break;
-        // TOP视图不需要旋转
-      }
+			switch (projectionDirection) {
+				case ProjectionDirection.TOP:
+					_matrix.makeRotationX(-Math.PI / 2);
+					geometry.applyMatrix4(_translateToOrigin);
+					geometry.applyMatrix4(_matrix);
+					geometry.applyMatrix4(_translateBack);
+					break;
+				case ProjectionDirection.BOTTOM:
+					_matrix.makeRotationX(Math.PI / 2);
+					geometry.applyMatrix4(_translateToOrigin);
+					geometry.applyMatrix4(_matrix);
+					geometry.applyMatrix4(_translateBack);
+					break;
+				case ProjectionDirection.FRONT:
+					_matrix.makeRotationZ(Math.PI / 2);
+					geometry.applyMatrix4(_translateToOrigin);
+					geometry.applyMatrix4(_matrix);
+					geometry.applyMatrix4(_translateBack);
+					break;
+				case ProjectionDirection.BACK:
+					_matrix.makeRotationZ(-Math.PI / 2);
+					geometry.applyMatrix4(_translateToOrigin);
+					geometry.applyMatrix4(_matrix);
+					geometry.applyMatrix4(_translateBack);
+					break;
+				case ProjectionDirection.LEFT:
+					break;
+				case ProjectionDirection.RIGHT:
+					_matrix.makeRotationZ(-Math.PI);
+					geometry.applyMatrix4(_translateToOrigin);
+					geometry.applyMatrix4(_matrix);
+					geometry.applyMatrix4(_translateBack);
+					break;
+				// TOP视图不需要旋转
+			}
 
 			bvh = new MeshBVH(geometry, { maxLeafTris: 1 });
 
@@ -342,6 +416,11 @@ export class ProjectionGenerator {
 
 			}
 
+		}
+
+		// 清理临时几何体
+		if (bvh.geometry !== geometry) {
+			bvh.geometry.dispose();
 		}
 
 		return finalEdges.getLineGeometry(0);

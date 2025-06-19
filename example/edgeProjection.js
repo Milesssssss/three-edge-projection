@@ -200,7 +200,15 @@ async function init() {
 	gui.add(params, 'rotate');
 	gui.add(params, 'regenerate');
 
-	worker = new ProjectionGeneratorWorker();
+	// 创建 worker - 可以选择使用 inline worker
+	const useInlineWorker = false; // 设置为 true 使用 inline worker
+	worker = new ProjectionGeneratorWorker(useInlineWorker);
+	
+	if (useInlineWorker) {
+		console.log('Using inline worker');
+	} else {
+		console.log('Using external worker file');
+	}
 
 	task = updateEdges();
 

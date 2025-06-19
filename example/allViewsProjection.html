@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #eee;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#output {
+				position: absolute;
+				text-align: left;
+				bottom: 0px;
+				left: 0px;
+				width: 100%;
+				padding: 10px;
+				box-sizing: border-box;
+				color: white;
+				background: rgba( 0, 0, 0, 0.6 );
+				font-family: monospace;
+				pointer-events: none;
+				white-space: pre;
+			}
+		</style>
+	</head>
+	<body>
+
+		<div id="output"></div>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://unpkg.com/three@0.163.0/build/three.module.js",
+					"three/examples/": "https://unpkg.com/three@0.163.0/examples/",
+					"..": "../src/index.js",
+					"../src/": "../src/"
+				}
+			}
+		</script>
+		<script type="module" src="./allViewsProjection.js"></script>
+
+	</body>
+</html> 
